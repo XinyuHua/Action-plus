@@ -1,6 +1,7 @@
 package edu.sjtu.cs.action.main;
 
 import edu.mit.jwi.item.POS;
+import edu.sjtu.cs.action.action.Action;
 import edu.sjtu.cs.action.knowledgebase.ProbaseClient;
 import edu.sjtu.cs.action.knowledgebase.Wordnet;
 import edu.sjtu.cs.action.util.*;
@@ -11,27 +12,173 @@ import java.io.*;
 public class Test {
 	
 	final private static String ACTION_URL = "dat/action/action_10.txt";
+	final private static String VERB_URL = "dat/action/verb_10.txt";
 	final private static String DEMO_FOLDER_URL = "dat/demo_1m/";
+	final private static String IDX_FOLDER_URL = "dat/index_1m/";
 	final private static String FREQ_FOLDER_URL = "dat/freq_1m/";
 	final private static String NOUN_LIST_ALL_URL = "dat/abstract_noun_all.txt";
 	final private static String NOUN_LIST_URL = "dat/noun_in_title_1m.txt";
 	final private static String NOUN_LIST_FREQ_URL = "dat/abstract_noun_freq.txt";
 	final private static String BING_NEWS_URL = "dat/news/bing_news_1m.tsv";
 	final private static String BING_NEWS_CONV_URL = "dat/news/bing_news_1m.tsv";
+	final private static String DETAIL_URL = "dat/details.txt";
 	private static String[] DUMMY_VERBS = {"be","have","get"};
  	private static List<String[]> actionList = new ArrayList<String[]>();
+ 	private static List<Action> actionClassList;
 	private static List<String> abstractList = new ArrayList<String>();
 	private static Lemmatizer lm ;
 	private static ProbaseClient probaseClient;
 	private static Wordnet wordnet;
 	private static List<String> dummyVerbs;
-	
+	private static HashSet<String> inflectionSet;
+	private static List<Set<String>> inflectionList; 
 	public static void main(String[] args)throws Exception
 	{
 		//getNounFromNewsTitle();
-		getFrequentNounForAction();
+		//getFrequentNounForAction();
+		loadActionList();
+		actionPlusRunner();
 	}
 	
+	private static void loadActionList()throws Exception
+	{
+		BufferedReader br = new BufferedReader(new FileReader(ACTION_URL));
+		BufferedReader br2 = new BufferedReader(new FileReader(VERB_URL));
+		String line = null;
+		actionClassList = new ArrayList<Action>();
+	//	inflectionSet = new HashSet<String>();
+		inflectionList = new ArrayList<Set<String>>();
+		while((line = br.readLine())!=null){
+			String splitted[] = line.split("\\s+");
+			actionClassList.add(new Action(splitted));
+		}
+		br.close();
+		
+		while((line = br2.readLine())!=null){
+			List<String> lines = Arrays.asList(line.split("\\s+"));
+			HashSet<String> tmp = new HashSet<String>();
+			tmp.addAll(lines);
+			inflectionList.add(tmp);
+			//inflectionSet.addAll(lines);
+		}
+		br2.close();
+	}
+	
+	
+	// For each action, finds news items where the action occurs and record the index for those news
+	private static void actionPlusRunner()throws Exception
+	{
+		//1. Read Actions
+		System.out.println("Reading actions...");
+		loadActionList();
+		System.out.println("Action Loaded.");
+		//2. Create Action record file under demo folder
+		BufferedWriter [] bwArray = new BufferedWriter[actionClassList.size()];
+		BufferedWriter bw = new BufferedWriter( new FileWriter(DETAIL_URL));
+		
+		for(int i = 0; i < actionClassList.size(); ++i){
+			String[] tmp = actionClassList.get(i).toStringArray();
+			File tmpFile = new File(IDX_FOLDER_URL + tmp[0] + "_" + tmp[1] + "_" + tmp[2] + ".idx");
+			bwArray[ i ] = new BufferedWriter( new FileWriter(tmpFile));	
+		}
+		
+		//3. Go through Bing_news, find existence of each action and record in their files
+		// 3.1 Initialize tools
+		probaseClient = new ProbaseClient();
+		wordnet = new Wordnet(true);
+		
+		// 3.3 Bang!
+		BufferedReader newsReader = new BufferedReader(new FileReader(BING_NEWS_CONV_URL));
+		String line = null;
+		int cnt = -1, foundNumber = 0; // cnt = -1, which means the first news is numbered as 0
+		boolean foundVerb = false;
+		int foundVerbNum = 0;
+		String verb = "";
+		List<Integer> actionToCheck = new ArrayList<Integer>();
+		List<Integer> sentenceToCheck = new ArrayList<Integer>();
+		
+		while((line = newsReader.readLine())!=null){
+			foundVerb = false;
+			foundVerbNum = 0;
+			cnt++;
+			System.out.println("read:" + Integer.toString(cnt) + " found:" + foundNumber);	
+			String body = line.split("\t")[7];
+			String lbody = body.toLowerCase();
+			
+			actionToCheck.clear();
+			for(int i = 0; i < inflectionList.size(); ++i){
+				Set<String> set = inflectionList.get(i);
+				for(String s : set){
+					if(lbody.contains(s)){
+						foundVerb = true;
+						foundVerbNum++;
+						actionToCheck.add(i);
+					}
+				}
+			}
+//			for(Set<String> set : inflectionList){
+//				for(String s : set){
+//					if(lbody.contains(s)){
+//						foundVerb = true;
+//						verb = s;
+//						
+//					}
+//				}
+//			}
+			
+//			for(String s : inflectionSet){
+//				if(lbody.contains(s)){
+//					foundVerb = true;
+//					verb = s;
+//					break;
+//				}
+//			}
+			if(!foundVerb){
+				continue;
+			}
+			
+			String[] sentences = body.split("\\.");
+			System.out.println(cnt + ":" + foundVerbNum);
+			bw.append("Verb found at " + cnt + ":\t" + verb + "\n");
+			bw.flush();
+			//System.out.println(body);
+			try{
+				for(Integer k : actionToCheck){
+				//for(int k = 0; k < actionClassList.size(); ++k){
+					
+					Action ac = actionClassList.get(k);
+					
+					List<String> rst = new ArrayList<String>();
+					for(String sentence : sentences){
+//						String instance = ac.findInstance(sentence, wordnet, probaseClient);
+//						if(instance != null){
+//							rst.add(instance);
+//						}
+						rst.addAll(ac.findInstance2(sentence, wordnet, probaseClient));
+					}
+							
+					if(!rst.isEmpty()){
+						for(String item : rst){
+							bwArray[ k ].append(cnt + "\t" + item + "\n");
+							bwArray[ k ].flush();
+							foundNumber++;
+							bw.append(cnt + "\t" + item + "\n");
+							bw.flush();
+						}
+					}
+				}
+			}catch(Exception e){
+				System.out.println(cnt);
+			}
+		}
+		bw.close();
+		// 3.4 close IO
+		newsReader.close();
+		for(BufferedWriter bw1 : bwArray)
+			bw1.close();
+		
+	}
+		
 	private static List<String> getNoun(String paragraph) throws Exception
 	{
 		List<String> result = new ArrayList<String>();
@@ -98,20 +245,6 @@ public class Test {
 			bwArray[i].close();
 		}
 		
-	}
-	
-	
-	private static void loadActionList()throws Exception
-	{
-		BufferedReader br = new BufferedReader(new FileReader(ACTION_URL));
-		String line = null;
-		actionList = new ArrayList<String[]>();
-		while((line = br.readLine())!=null)
-		{
-			String splitted[] = line.split("\\s+");
-			actionList.add(splitted);
-		}
-		br.close();
 	}
 	
 	

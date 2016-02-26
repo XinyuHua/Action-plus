@@ -9,8 +9,8 @@ import java.util.*;
 
 public class Main {
 	
-	final private static String ACTION_URL = "dat/action/action_60.txt";
-	final private static String IDX_FOLDER_URL = "dat/index_1m/";
+	final private static String ACTION_URL = "dat/action/action_10.txt";
+	final private static String IDX_FOLDER_URL = "dat/action_occurrence_1m/";
 	final private static String BING_NEWS_URL = "dat/news/bing_news_1m.tsv";
 	final private static String BING_NEWS_CONV_URL = "dat/news/bing_news_1m.tsv";
 	final private static String NOUN_LIST_URL = "dat/noun_in_title_1m.txt";
@@ -21,17 +21,16 @@ public class Main {
 	private static ProbaseClient probaseClient;
 	private static Wordnet wordnet;
 	
-	public static void main(String args[]) throws Exception
-	{  	
+	public static void main(String args[]) throws Exception{
 		//System.out.println( checkPresence(65));
-		//showLine(30);
 		actionPlusRunner();
 		//convert();
 		//findNounInTitles();
 	}
 	
-	private static void actionPlusRunner()throws Exception
-	{
+	
+	// For each action, finds news items where the action occurs and record the index for those news
+	private static void actionPlusRunner()throws Exception{	
 		//1. Read Actions
 		System.out.println("Reading actions...");
 		loadActionList();
@@ -156,11 +155,7 @@ public class Main {
 		for(BufferedWriter bw : bwArray)
 			bw.close();
 	}
-	
-	
-	
-	
-	
+		
 	
 	private static void getNounFromNewsTitle() throws Exception
 	{
