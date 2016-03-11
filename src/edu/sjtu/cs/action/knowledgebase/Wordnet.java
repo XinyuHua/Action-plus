@@ -19,9 +19,12 @@ import edu.mit.jwi.morph.WordnetStemmer;
 
 public class Wordnet {
 	
-	final static private File WORDNET_FILE = new File("D:/xinyu/data/WordNet3.1/dict");
+	final static private File WORDNET_FILE = new File("dat/wordnet/dict");
 	static private IRAMDictionary dict;
 	static private WordnetStemmer stemmer;
+	
+	
+	
 	public Wordnet(boolean reside)throws Exception
 	{
 		dict = new RAMDictionary(WORDNET_FILE, ILoadPolicy.NO_LOAD);
@@ -34,6 +37,40 @@ public class Wordnet {
 		}
 		
 		stemmer = new WordnetStemmer(dict);
+	}
+	
+	public static HashSet<String> getActNoun()throws Exception{
+		HashSet<String> nounSet = new HashSet<String>();
+		int j =0 ;
+		for(Iterator<IIndexWord> i = dict.getIndexWordIterator(POS.NOUN); i.hasNext();){
+			for(IWordID wid : i.next().getWordIDs()){
+				IWord word = dict.getWord(wid);
+				ISynset synset = word.getSynset();
+				String LexFileName = synset.getLexicalFile().getName();
+				if(LexFileName.equals("noun.act")){
+					nounSet.add( word.getLemma() );
+				}
+			}
+		}
+		return nounSet;
+	}
+	
+	public static List<String> getRelatedNouns(String word, POS pos)throws Exception{
+		List<String> relatedWordsIDList = new ArrayList<String>();
+		IIndexWord idxWord = dict.getIndexWord(word, pos);
+		for(IWordID wordID : idxWord.getWordIDs()){
+			System.out.println("id:" + wordID);
+			List<IWordID> l = dict.getWord(wordID).getRelatedWords(Pointer.DERIVATIONALLY_RELATED);
+			if(l.size() > 0){
+				for(IWordID id : l){
+					IWord iword = dict.getWord(id);
+					if( id.getPOS() == POS.NOUN){
+						relatedWordsIDList.add(iword.getLemma());
+					}
+				}
+			}
+		}
+		return relatedWordsIDList;
 	}
 	
 	public static List<String> stemNoun(String surfaceForm) throws Exception

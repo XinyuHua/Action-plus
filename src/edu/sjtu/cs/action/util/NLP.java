@@ -12,11 +12,17 @@ import edu.stanford.nlp.trees.TreebankLanguagePack;
 import edu.stanford.nlp.trees.TypedDependency;
 
 public class NLP {
-	private static LexicalizedParser lp = LexicalizedParser.loadModel(
-			"edu/stanford/nlp/models/lexparser/englishPCFG.ser.gz",
-			"-maxLength", "80", "-retainTmpSubcategories");
-	private static TreebankLanguagePack tlp = new PennTreebankLanguagePack();
-	private static GrammaticalStructureFactory gsf = tlp.grammaticalStructureFactory();
+	private static LexicalizedParser lp;
+	private static TreebankLanguagePack tlp;
+	private static GrammaticalStructureFactory gsf;
+	
+	public NLP()throws Exception{
+		lp = LexicalizedParser.loadModel(
+				"edu/stanford/nlp/models/lexparser/englishPCFG.ser.gz",
+				"-maxLength", "80", "-retainTmpSubcategories");
+		tlp = new PennTreebankLanguagePack();
+		gsf = tlp.grammaticalStructureFactory();
+	}
 	
 	public static String[] dependencyParse(String sentence){
 		String[] result;

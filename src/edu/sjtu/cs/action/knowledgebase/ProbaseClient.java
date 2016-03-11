@@ -9,11 +9,15 @@ public class ProbaseClient{
 	private PrintStream printerToServer;
 	private BufferedReader readerFromServer;
     
-    public ProbaseClient()throws Exception
+    public ProbaseClient(int port)throws Exception
     {
-    	connectionSocket = new Socket("localhost",4444);
+    	connectionSocket = new Socket("localhost",port);
     	printerToServer = new PrintStream( connectionSocket.getOutputStream() );
     	readerFromServer = new BufferedReader(new InputStreamReader( connectionSocket.getInputStream() ) );
+    }
+    
+    public void disconnect()throws Exception{
+    	printerToServer.println("bye");
     }
 
     public boolean isProbaseEntity(String concept) throws Exception
@@ -32,7 +36,7 @@ public class ProbaseClient{
     	if(instance.length() < 2)
     		return false;
     	printerToServer.println("isPair");
-    	printerToServer.println(concept + "," + instance);
+    	printerToServer.println(concept + "_" + instance);
     	if(readerFromServer.readLine().equals("true"))
     		return true;
     	return false;
@@ -52,9 +56,9 @@ public class ProbaseClient{
     	List<String> resultList = new ArrayList<String>();
     	printerToServer.println("findHyper");
     	printerToServer.println(instance);
-    	String[] result = readerFromServer.readLine().split(",");
-    	for(String st : result)
-    	{
+    	String originResult = readerFromServer.readLine();
+    	String[] result = originResult.split("_");
+    	for(String st : result){
     		if(!st.isEmpty())
     			resultList.add(st);
     	}
@@ -66,7 +70,7 @@ public class ProbaseClient{
     	List<String> resultList = new ArrayList<String>();
     	printerToServer.println("findHypo");
     	printerToServer.println(concept);
-    	String[] result = readerFromServer.readLine().split(",");
+    	String[] result = readerFromServer.readLine().split("_");
     	for(String st : result)
     	{
     		if(!st.isEmpty())
@@ -78,16 +82,16 @@ public class ProbaseClient{
     public Integer getFreq(String concept, String instance) throws Exception
     {
     	printerToServer.println("getFreq");
-    	printerToServer.println(concept + "," + instance);
-    	String[] result = readerFromServer.readLine().split(",");
+    	printerToServer.println(concept + "_" + instance);
+    	String[] result = readerFromServer.readLine().split("_");
     	return Integer.parseInt(result[0]);
     }
     
     public Integer getPop(String concept, String instance) throws Exception
     {
     	printerToServer.println("getFreq");
-    	printerToServer.println(concept + "," + instance);
-    	String[] result = readerFromServer.readLine().split(",");
+    	printerToServer.println(concept + "_" + instance);
+    	String[] result = readerFromServer.readLine().split("_");
     	return Integer.parseInt(result[1]);
     }
     

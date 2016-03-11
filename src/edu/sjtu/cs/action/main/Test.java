@@ -1,7 +1,6 @@
 package edu.sjtu.cs.action.main;
 
 import edu.mit.jwi.item.POS;
-import edu.sjtu.cs.action.action.Action;
 import edu.sjtu.cs.action.knowledgebase.ProbaseClient;
 import edu.sjtu.cs.action.knowledgebase.Wordnet;
 import edu.sjtu.cs.action.util.*;
@@ -24,161 +23,36 @@ public class Test {
 	final private static String DETAIL_URL = "dat/details.txt";
 	private static String[] DUMMY_VERBS = {"be","have","get"};
  	private static List<String[]> actionList = new ArrayList<String[]>();
- 	private static List<Action> actionClassList;
 	private static List<String> abstractList = new ArrayList<String>();
 	private static Lemmatizer lm ;
-	private static ProbaseClient probaseClient;
+	private static ProbaseClient pb;
 	private static Wordnet wordnet;
 	private static List<String> dummyVerbs;
 	private static HashSet<String> inflectionSet;
 	private static List<Set<String>> inflectionList; 
 	public static void main(String[] args)throws Exception
 	{
+		HashMap<Integer, HashSet<Integer>> a = new HashMap<>();
+		HashSet<Integer> t = new HashSet<>();
+		t.add(1);
+		a.put(0,t);
+		HashSet<Integer> t2 = a.get(0);
+		t2.add(3);
+		System.out.println(a.get(0).size());
+//		String body = "Am I joking? No, I don't think so. Right! Nop...";
+//		String[] sentences = body.split("((?<=\\?)|(?<=\\!)|(?<=\\.))");
+//		for(String s : sentences){
+//			System.out.println(s.trim());
+//		}
 		//getNounFromNewsTitle();
 		//getFrequentNounForAction();
-		loadActionList();
-		actionPlusRunner();
-	}
-	
-	private static void loadActionList()throws Exception
-	{
-		BufferedReader br = new BufferedReader(new FileReader(ACTION_URL));
-		BufferedReader br2 = new BufferedReader(new FileReader(VERB_URL));
-		String line = null;
-		actionClassList = new ArrayList<Action>();
-	//	inflectionSet = new HashSet<String>();
-		inflectionList = new ArrayList<Set<String>>();
-		while((line = br.readLine())!=null){
-			String splitted[] = line.split("\\s+");
-			actionClassList.add(new Action(splitted));
-		}
-		br.close();
-		
-		while((line = br2.readLine())!=null){
-			List<String> lines = Arrays.asList(line.split("\\s+"));
-			HashSet<String> tmp = new HashSet<String>();
-			tmp.addAll(lines);
-			inflectionList.add(tmp);
-			//inflectionSet.addAll(lines);
-		}
-		br2.close();
+//		loadActionList();
+//		actionPlusRunner();
 	}
 	
 	
-	// For each action, finds news items where the action occurs and record the index for those news
-	private static void actionPlusRunner()throws Exception
-	{
-		//1. Read Actions
-		System.out.println("Reading actions...");
-		loadActionList();
-		System.out.println("Action Loaded.");
-		//2. Create Action record file under demo folder
-		BufferedWriter [] bwArray = new BufferedWriter[actionClassList.size()];
-		BufferedWriter bw = new BufferedWriter( new FileWriter(DETAIL_URL));
-		
-		for(int i = 0; i < actionClassList.size(); ++i){
-			String[] tmp = actionClassList.get(i).toStringArray();
-			File tmpFile = new File(IDX_FOLDER_URL + tmp[0] + "_" + tmp[1] + "_" + tmp[2] + ".idx");
-			bwArray[ i ] = new BufferedWriter( new FileWriter(tmpFile));	
-		}
-		
-		//3. Go through Bing_news, find existence of each action and record in their files
-		// 3.1 Initialize tools
-		probaseClient = new ProbaseClient();
-		wordnet = new Wordnet(true);
-		
-		// 3.3 Bang!
-		BufferedReader newsReader = new BufferedReader(new FileReader(BING_NEWS_CONV_URL));
-		String line = null;
-		int cnt = -1, foundNumber = 0; // cnt = -1, which means the first news is numbered as 0
-		boolean foundVerb = false;
-		int foundVerbNum = 0;
-		String verb = "";
-		List<Integer> actionToCheck = new ArrayList<Integer>();
-		List<Integer> sentenceToCheck = new ArrayList<Integer>();
-		
-		while((line = newsReader.readLine())!=null){
-			foundVerb = false;
-			foundVerbNum = 0;
-			cnt++;
-			System.out.println("read:" + Integer.toString(cnt) + " found:" + foundNumber);	
-			String body = line.split("\t")[7];
-			String lbody = body.toLowerCase();
-			
-			actionToCheck.clear();
-			for(int i = 0; i < inflectionList.size(); ++i){
-				Set<String> set = inflectionList.get(i);
-				for(String s : set){
-					if(lbody.contains(s)){
-						foundVerb = true;
-						foundVerbNum++;
-						actionToCheck.add(i);
-					}
-				}
-			}
-//			for(Set<String> set : inflectionList){
-//				for(String s : set){
-//					if(lbody.contains(s)){
-//						foundVerb = true;
-//						verb = s;
-//						
-//					}
-//				}
-//			}
-			
-//			for(String s : inflectionSet){
-//				if(lbody.contains(s)){
-//					foundVerb = true;
-//					verb = s;
-//					break;
-//				}
-//			}
-			if(!foundVerb){
-				continue;
-			}
-			
-			String[] sentences = body.split("\\.");
-			System.out.println(cnt + ":" + foundVerbNum);
-			bw.append("Verb found at " + cnt + ":\t" + verb + "\n");
-			bw.flush();
-			//System.out.println(body);
-			try{
-				for(Integer k : actionToCheck){
-				//for(int k = 0; k < actionClassList.size(); ++k){
-					
-					Action ac = actionClassList.get(k);
-					
-					List<String> rst = new ArrayList<String>();
-					for(String sentence : sentences){
-//						String instance = ac.findInstance(sentence, wordnet, probaseClient);
-//						if(instance != null){
-//							rst.add(instance);
-//						}
-						rst.addAll(ac.findInstance2(sentence, wordnet, probaseClient));
-					}
-							
-					if(!rst.isEmpty()){
-						for(String item : rst){
-							bwArray[ k ].append(cnt + "\t" + item + "\n");
-							bwArray[ k ].flush();
-							foundNumber++;
-							bw.append(cnt + "\t" + item + "\n");
-							bw.flush();
-						}
-					}
-				}
-			}catch(Exception e){
-				System.out.println(cnt);
-			}
-		}
-		bw.close();
-		// 3.4 close IO
-		newsReader.close();
-		for(BufferedWriter bw1 : bwArray)
-			bw1.close();
-		
-	}
-		
+	
+	
 	private static List<String> getNoun(String paragraph) throws Exception
 	{
 		List<String> result = new ArrayList<String>();
@@ -189,7 +63,7 @@ public class Test {
 			if(!parts[1].startsWith("N"))
 				continue;
 			//System.out.println(st);
-			if(probaseClient.isGoodConcept(parts[0]))
+			if(pb.isGoodConcept(parts[0]))
 			{
 				result.add(parts[0]);
 			}
@@ -197,55 +71,6 @@ public class Test {
 		return result;
 	}
 	
-	private static void getFrequentNounForAction()throws Exception
-	{
-		BufferedReader br = new BufferedReader(new FileReader(NOUN_LIST_URL));
-		HashMap<Integer, String[]> idxToNounArray = new HashMap<Integer, String[]>();
-		String line = null;
-		while((line = br.readLine())!=null)
-		{
-			String[] splitted = line.split(":");
-			String[] splitted2 = splitted[1].split("\t");
-			idxToNounArray.put(Integer.parseInt(splitted[0]), splitted2);
-		}
-		br.close();
-		
-		loadActionList();
-		BufferedReader[] brArray = new BufferedReader[actionList.size()];
-		for(int i = 0; i < actionList.size(); ++i)
-		{
-			String[] action = actionList.get(i);
-			brArray[ i ] = new BufferedReader(new FileReader(DEMO_FOLDER_URL +
-					action[0] + "_" + action[1] + "_" + action[2] + ".idx"));
-		}
-		
-		BufferedWriter [] bwArray = new BufferedWriter[actionList.size()];
-		for(int i = 0; i < actionList.size(); ++i)
-		{
-			String[] tmp = actionList.get(i);
-			bwArray[ i ] = new BufferedWriter( 
-					new FileWriter(
-							FREQ_FOLDER_URL + tmp[0] + "_" + tmp[1] + "_" + tmp[2] + ".freq"));	
-		}
-		
-		for(int i = 0; i < actionList.size(); ++i)
-		{
-			System.out.println(i);
-			while((line = brArray[i].readLine())!=null)
-			{
-				
-				String[] nouns = idxToNounArray.get(Integer.parseInt(line.split("\\s+")[0]));
-				//System.out.println(nouns == null);
-				if( nouns == null ||nouns.length == 0)
-					continue;
-				for(String noun : nouns)
-					bwArray[i].append(noun + "\n");
-			}
-			brArray[i].close();
-			bwArray[i].close();
-		}
-		
-	}
 	
 	
 	private static void showLine(int dest)throws Exception
@@ -268,7 +93,7 @@ public class Test {
 	
 	private static boolean checkPresence(int dest)throws Exception
 	{
-		probaseClient = new ProbaseClient();
+		pb = new ProbaseClient(4400);
 		lm = new Lemmatizer();
 		wordnet = new Wordnet(false);
 		List<String> dummyVerbs = Arrays.asList(DUMMY_VERBS);
@@ -314,7 +139,7 @@ public class Test {
 				{
 					String[] focus = tagged.get(j).split("_");
 					//System.out.println(focus[0] + "\t" + focus[1]);
-					if(focus[1].startsWith("N") && probaseClient.isPair(action[0], focus[0]))
+					if(focus[1].startsWith("N") && pb.isPair(action[0], focus[0]))
 					{
 						findValue++;
 						break;
@@ -323,7 +148,7 @@ public class Test {
 				for( int j = i + 1; j <= upper; ++j)
 				{
 					String[] focus = tagged.get(j).split("_");
-					if(focus[1].startsWith("N") && probaseClient.isPair(action[2], focus[0]))
+					if(focus[1].startsWith("N") && pb.isPair(action[2], focus[0]))
 					{
 						findValue++;
 						break;
@@ -332,11 +157,8 @@ public class Test {
 				// action found,record idx
 				if(findValue == 2)
 					return true;
-					
 				}
 			}
-		
-		
 		br.close();
 		return false;
 	}
@@ -357,15 +179,14 @@ public class Test {
 	private static void testLemmatizer()throws Exception
 	{
 		Lemmatizer lt = new Lemmatizer();
-		BufferedReader br = new BufferedReader(new FileReader("dat/bing_news_100k.tsv"));
+		BufferedReader br = new BufferedReader(new FileReader("dat/bing_news_99.tsv"));
 		String line = null;
 		int cnt = 0;
 		while((line = br.readLine())!=null)
 		{
 			line = Utility.convertFromUTF8( line.split("\t")[6].toLowerCase());
 			cnt++;
-			if(cnt > 30)
-				break;
+			
 			List<String> rst = lt.lemmatizeAndPOSTag(line);
 			for(String st : rst)
 			{
@@ -376,13 +197,6 @@ public class Test {
 		br.close();
 		
 	}
-	
-	private static void testProbase()throws Exception
-	{
-		ProbaseClient pb = new ProbaseClient();
-		System.out.println(pb.isPair("time","Ferrari"));
-	}
-
 	
 
 }

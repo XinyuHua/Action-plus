@@ -1,13 +1,60 @@
 package edu.sjtu.cs.action.main;
+
 import java.io.*;
 import java.util.*;
+
+import edu.sjtu.cs.action.util.NLP;
+import edu.stanford.nlp.ling.CoreAnnotations.SentencesAnnotation;
+import edu.stanford.nlp.ling.Document;
+import edu.stanford.nlp.ling.Sentence;
+import edu.stanford.nlp.pipeline.Annotation;
+import edu.stanford.nlp.pipeline.StanfordCoreNLP;
+import edu.stanford.nlp.semgraph.SemanticGraph;
+import edu.stanford.nlp.semgraph.SemanticGraphCoreAnnotations.CollapsedCCProcessedDependenciesAnnotation;
+import edu.stanford.nlp.trees.Tree;
+import edu.stanford.nlp.trees.TreeCoreAnnotations.TreeAnnotation;
+import edu.stanford.nlp.trees.TypedDependency;
+import edu.stanford.nlp.util.CoreMap;
 public class Debugger {
 	private static final String DEBUG_URL = "dat/debug/";
-	private static final String NEWS_URL = "dat/news/bing_news_1m.tsv";
+	private static final String NEWS_URL = "dat/news/bing_news_100k.tsv";
+	final private static String VERB_URL = "dat/action/verb_60.txt";
+	final private static String FILTERED_URL = "dat/news/filtered_100k.tsv";
+	private static HashSet<String> inflectionSet;
 	
 	public static void main(String[] args) throws Exception{
 		//showUnmatchedNewsIdxForCIC();
-		showUnmatchedNewsForCIC();
+		//showUnmatchedNewsForCIC();
+		//showSSplitResult();
+		char a = 'a';
+		char c = 'c';
+		char b = 'b';
+		System.out.println(a < c);
+		System.out.println(c > b);
+	}
+	
+	
+	
+	private static void showParsingResult()throws Exception{
+		NLP nlp = new NLP();
+		String sentence = "They join vigorously, liberating much heat as they burn with a pale green flame.";
+		String[] result = nlp.dependencyParse(sentence);
+		for(String s : result){
+			System.out.println(s);
+		}
+	}
+	
+	private static void showSSplitResult()throws Exception{
+		Properties props = new Properties();
+		props.setProperty("annotators", "tokenize, ssplit, parse");
+		StanfordCoreNLP pipeline = new StanfordCoreNLP(props);
+		String text = "He is joking!? Mr.Z is laughing?";
+		Annotation document = new Annotation(text);
+		pipeline.annotate(document);
+		List<CoreMap> sentences = document.get(SentencesAnnotation.class);
+		for(CoreMap sentence : sentences){
+			System.out.println(sentence.toString());
+		}
 	}
 	
 	/*
