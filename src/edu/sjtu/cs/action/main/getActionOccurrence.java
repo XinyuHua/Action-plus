@@ -9,6 +9,8 @@ import edu.sjtu.cs.action.util.Lemmatizer;
 public class getActionOccurrence implements Runnable {
 	final private static String IDX_FOLDER_URL = "dat/action_occurrence_tmp/";
 	final private static String BING_NEWS_SLICED_URL = "dat/news/bing_news_sliced/";
+	final private static String BING_NEWS_PARSED_URL = "dat/news/bing_news_sliced_parsed/";
+	final private static String BING_NEWS_POSTAG_URL = "dat/news/bing_news_sliced_postag/";
 	private ProbaseClient pb;
 	private static Wordnet wn;
 	private static Lemmatizer lm;
@@ -16,15 +18,17 @@ public class getActionOccurrence implements Runnable {
 	private static List<Set<String>> inflectionList; 
 	private static HashSet<String> inflectionSet;
 	private static List<String> dummyVerbs;
-	private static int offset = 134163;
+	private static int offset;
 	private static List<String[]> actionList;
+	final private static String[] VERB_TAG = {"VB", "VBD", "VBG", "VBN", "VBP", "VBZ"};
 	private int part;
 	
-	public getActionOccurrence( int part, ProbaseClient pb, Wordnet wn, 
+	public getActionOccurrence( int part, int offset,ProbaseClient pb, Wordnet wn, 
 			Lemmatizer lm, List<String> dv, List<String[]> al,  List<Set<String>> il,
 			HashSet<String> is,	List<String> pl){
 		this.pb = pb;
 		this.wn = wn;
+		this.offset = offset;
 		this.lm = lm;
 		this.dummyVerbs = dv;
 		this.actionList = al;
@@ -102,7 +106,7 @@ public class getActionOccurrence implements Runnable {
 	
 	private boolean actionDetected(String sentence, String[] action)throws Exception{
 		List<String> tagged = lm.lemmatizeAndPOSTag(sentence);
-		int findValue = 0, findValuePassive = 0;
+		int findValue = 0;
 		String subject = action[ 0 ];
 		String object = action[ 2 ];
 		String predicate = action[ 1 ];
@@ -128,27 +132,19 @@ public class getActionOccurrence implements Runnable {
 					String[] focus = tagged.get(j).split("_");
 					//System.out.println(focus[0] + "\t" + focus[1]);
 					if(focus[1].startsWith("N") && pb.isPair(subject, focus[0])){
-						//System.out.println(focus[0]);
 						findValue++;
-					}
-					
-					if(focus[1].startsWith("N") && pb.isPair(object, focus[0])){
-						findValuePassive++;
+						break;
 					}
 				}
 				for( int j = i + 1; j <= upper; ++j){
 					String[] focus = tagged.get(j).split("_");
 					if(focus[1].startsWith("N") && pb.isPair(object, focus[0])){
-						//System.out.println(focus[0]);
 						findValue++;
-					}
-					
-					if(focus[1].startsWith("N") && pb.isPair(subject, focus[0])){
-						findValuePassive++;
+						break;
 					}
 				}
 				// action found,record idx
-				if(findValue >= 2 || findValuePassive >= 2){
+				if(findValue == 2){
 					return true;
 				}
 			}
@@ -245,8 +241,8 @@ public class getActionOccurrence implements Runnable {
             
             //condition 11: All - Upper Case
             int upperWin = 3;
-            for (int t = 0; t < words.length - upperWin; t++)
-            {
+            for (int t = 0; t < words.length - upperWin; t++){
+            
                 int upperCount = 0;
                 for (int i = 0; i < upperWin; i++){
                     String curWord = words[t + i];
@@ -280,6 +276,4 @@ public class getActionOccurrence implements Runnable {
         }
         return true;
 	}
-	
-	
 }
