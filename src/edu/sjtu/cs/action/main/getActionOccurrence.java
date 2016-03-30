@@ -4,104 +4,268 @@ import java.io.*;
 
 import edu.sjtu.cs.action.knowledgebase.ProbaseClient;
 import edu.sjtu.cs.action.knowledgebase.Wordnet;
+import edu.sjtu.cs.action.util.Action;
 import edu.sjtu.cs.action.util.Lemmatizer;
+import edu.sjtu.cs.action.util.Pair;
 
 public class getActionOccurrence implements Runnable {
-	final private static String IDX_FOLDER_URL = "dat/action_occurrence_tmp/";
+	final private static String IDX_FOLDER_URL = "dat/action_occurrence_tmp2/";
 	final private static String BING_NEWS_SLICED_URL = "dat/news/bing_news_sliced/";
 	final private static String BING_NEWS_PARSED_URL = "dat/news/bing_news_sliced_parsed/";
 	final private static String BING_NEWS_POSTAG_URL = "dat/news/bing_news_sliced_postag/";
-	private ProbaseClient pb;
+	private  ProbaseClient pb;
 	private static Wordnet wn;
 	private static Lemmatizer lm;
 	private static List<String> puncList;
 	private static List<Set<String>> inflectionList; 
 	private static HashSet<String> inflectionSet;
-	private static List<String> dummyVerbs;
-	private static int offset;
+	private static HashSet<String> dummyVerbs;
 	private static List<String[]> actionList;
-	final private static String[] VERB_TAG = {"VB", "VBD", "VBG", "VBN", "VBP", "VBZ"};
+	private static HashSet<String> verbTagSet;
+	private static List<HashSet<String>> synList;
+	private static HashSet<String> synsetSet;
 	private int part;
 	
-	public getActionOccurrence( int part, int offset,ProbaseClient pb, Wordnet wn, 
-			Lemmatizer lm, List<String> dv, List<String[]> al,  List<Set<String>> il,
-			HashSet<String> is,	List<String> pl){
+	public getActionOccurrence( int part, ProbaseClient pb, Wordnet wn, 
+			Lemmatizer lm,  List<String[]> al,  List<Set<String>> il,
+			HashSet<String> is,	List<String> pl, HashSet<String> dummyVerbSet, HashSet<String> verbTagSet,
+			List<HashSet<String>> synList, HashSet<String> synsetSet){
 		this.pb = pb;
 		this.wn = wn;
-		this.offset = offset;
 		this.lm = lm;
-		this.dummyVerbs = dv;
+		this.dummyVerbs = dummyVerbSet;
+		this.verbTagSet = verbTagSet;
 		this.actionList = al;
 		this.inflectionList = il;
 		this.inflectionSet = is;
 		this.puncList = pl;
 		this.part = part;
+		this.synList = synList;
+		this.synsetSet = synsetSet;
 	}
 	
 	public void run(){
-		File fileToWrite = new File(IDX_FOLDER_URL + part + "/");
-		fileToWrite.mkdirs();
-		BufferedWriter[] bwArray = new BufferedWriter[actionList.size()];
+		File fileToWrite = new File(IDX_FOLDER_URL + part + ".txt");
 		try{
-			for(int i = 0; i < actionList.size(); ++i){
-				String[] tmp = actionList.get(i);
-				File tmpFile = new File(IDX_FOLDER_URL + part + "/" + tmp[0] + "_" + tmp[1] + "_" + tmp[2] + ".idx");
-				bwArray[ i ] = new BufferedWriter( new FileWriter(tmpFile));	
+			BufferedWriter bw = new BufferedWriter(new FileWriter(fileToWrite));
+			BufferedReader parsedNewsReader = new BufferedReader(new FileReader(BING_NEWS_PARSED_URL + "bing_news_parsed_" + part + ".txt"));
+			BufferedReader postagNewsReader = new BufferedReader(new FileReader(BING_NEWS_POSTAG_URL + "bing_news_pos_" + part + ".txt"));
+			String line = null;
+			int foundNumber = 0; // cnt = -1, which means the first news is numbered as 0
+			int newsIdx = -1;
+			int oldIdx = -1;
+			while((line = parsedNewsReader.readLine())!=null){
+				newsIdx = Integer.parseInt(line.split("\t")[0]);
+				String parsed = line.split("\t")[1];
+				line = postagNewsReader.readLine();
+				String postag = line.split("\t")[1];
+				if(newsIdx % 1000 == 0){
+					System.out.println("part:" + part +" read:" + newsIdx + " found:" + foundNumber);	
+				}
+				String[] posStr = postag.replaceAll("\\[|\\]","").split(",\\s+");
+				List<Set<Pair>> dependencyTree = new ArrayList<Set<Pair>>();
+				for(int i = 0; i < posStr.length + 1; ++i){
+					dependencyTree.add(new HashSet<Pair>());
+				}
+				
+				for(String parsedPart : parsed.split("\\) ")){
+					String dep = parsedPart.substring(0, parsedPart.indexOf("("));
+					String content = parsedPart.substring(parsedPart.indexOf("(") + 1);
+					String[] sp = content.split(",\\s+");
+					int left = Integer.parseInt(sp[0].substring(sp[0].lastIndexOf("-") + 1));
+					int right = Integer.parseInt(sp[1].substring(sp[1].lastIndexOf("-") + 1));
+					Set<Pair> set = dependencyTree.get(left);
+					set.add(new Pair(dep,right));
+				}
+				
+				/*
+				 * Display dependency tree
+				 */
+//				int cnt = 0;
+//				for(Set<Pair> set : dependencyTree){
+//					System.out.print(cnt + "\t");
+//					for(Pair p : set){
+//						System.out.print(p + " ");
+//					}
+//					System.out.println();
+//					cnt++;
+//				}
+				
+				/*
+				 * Initialize verbIds list and tokens list.
+				 * verbIds list stores indeces of verbs, tokens list stores tokens 
+				 * in the original sentence, in the original order. 
+				 */
+				int cnt = 1;
+				List<Integer> verbIds = new ArrayList<Integer>();
+				List<String> tokens = new ArrayList<String>();
+				tokens.add("ROOT");
+				for(String pos : posStr){
+					pos = pos.trim();
+					String sp[] = pos.split("/");
+					String token = sp[0];
+					String TAG = sp[1];
+					if(verbTagSet.contains(TAG) && !dummyVerbs.contains(token)){
+						verbIds.add(cnt);
+					}
+					tokens.add(token);
+					cnt++;
+				}
+				
+				/*
+				 * Search actions in the document.
+				 */
+				String toWrite = "";
+				List<Action> resultActionList = searchAction(tokens, dependencyTree, verbIds);
+				Object[] output = writeActionAll(resultActionList, foundNumber);
+				toWrite = (String) output[ 0 ];
+				foundNumber = (int) output[ 1 ];
+				
+				if(toWrite.length() != 0){
+					if(oldIdx == newsIdx){
+						bw.append(toWrite);
+					}else{
+						bw.newLine();
+						bw.append(newsIdx + toWrite);
+						oldIdx = newsIdx;
+					}
+					bw.flush();
+				}
 			}
 			
-			BufferedReader newsReader = new BufferedReader(new FileReader(BING_NEWS_SLICED_URL + "bing_news_" + part + ".tsv"));
-			String line = null;
-			int cnt = -1, foundNumber = 0, potential = 0; // cnt = -1, which means the first news is numbered as 0
-			int lineNum = part * offset - 1;
-			while((line = newsReader.readLine())!=null){
-				cnt++;
-				lineNum++;
-				String body = line.split("\t")[7];
-				if(cnt % 1000 == 0){
-					System.out.println("part:" + part +" read:" + cnt + " found:" + foundNumber + " potential:" + potential);	
-				}
-				boolean[] whichToCheck = new boolean[actionList.size()];
-				int i = 0;
-				boolean toCheck = false;
-				for(Set<String> verbs : inflectionList){
-					for(String s : verbs){
-						if(body.contains(s)){
-							whichToCheck[ i ] = true;
-							toCheck = true;
-							break;
-						}
-					}
-					i++;
-				}
-				if(toCheck){
-					for(int k = 0; k < actionList.size(); ++k){	
-						if(whichToCheck[ k ]){
-							String[] sentences = body.split("(?<=[.!?])\\s* ");
-							for(String sentence : sentences){
-								sentence = sentence.trim();
-								if(isGoodSentence(sentence)){
-									potential++;
-									if(actionDetected(sentence, actionList.get(k))){
-										bwArray[k].append(Integer.toString(lineNum) + "\t"
-												  + sentence  +"\n");
-										foundNumber++;
-										bwArray[k].flush();
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-			// 3.4 close IO
-			newsReader.close();
-			for(BufferedWriter bw : bwArray)
-				bw.close();
+			parsedNewsReader.close();
+			postagNewsReader.close();
+			bw.close();
 			pb.disconnect();
 		}
 		catch(Exception e){
+			e.printStackTrace();
 			System.out.println(e);
 		}
+	}
+	
+	private Object[] writeActionAll(List<Action> resultActionList, int foundNumber)throws Exception{
+		String toWrite = "";
+		for(Action ac : resultActionList){
+			foundNumber++;
+			toWrite += "\t" + ac.toString();
+		}
+		Object[] result = new Object[2];
+		result[0] = toWrite;
+		result[1] = foundNumber;
+		return result;
+	}
+	
+	private Object[] writeActionForKnown(List<Action> resultActionList, int foundNumber)throws Exception{
+		String toWrite = "";
+		for(Action ac : resultActionList){
+			String subj = ac.getSubj();
+			String verb = ac.getVerb();
+			String obj = ac.getObj();
+			
+			if(!inflectionSet.contains(verb) && !synsetSet.contains(verb)){
+				continue;
+			}
+			
+			for(int i = 0; i < actionList.size(); ++i){
+				String[] action = actionList.get(i);
+				Set<String> inflect = inflectionList.get(i);
+				HashSet<String> synSet = synList.get(i);
+				if(inflect.contains(verb) || synSet.contains(verb)){
+					//System.out.println(action[0] + "-" + subj);
+					if(pb.isPair(action[0], subj) && pb.isPair(action[2], obj)){
+						foundNumber ++;
+						toWrite += "\t" + action[0] + "_" + action[1] + "_" + action[2];
+						toWrite += "(" + ac.toString() + ")";
+					}
+				}
+			}
+		}
+		
+		Object[] result = new Object[2];
+		result[ 0 ] = toWrite;
+		result[ 1 ] = foundNumber;
+		return result;
+	}
+	
+	/*
+	 * This method search actions in the document, it starts searching from 
+	 * each verb stored in the verbIds list.
+	 */
+	private List<Action> searchAction(List<String> tokens, List<Set<Pair>> dependencyTree, List<Integer> verbIds) throws Exception{
+		List<Action> output = new ArrayList<Action>();
+		for(Integer id : verbIds){
+			output.addAll(searchActionForVerb(tokens,dependencyTree,id));
+		}
+		return output;
+	}
+	
+	
+	/*
+	 * This method search action given a certain verbId, it might find multiple actions given a single verb.
+	 */
+	private List<Action> searchActionForVerb(List<String> tokens, List<Set<Pair>> dependencyTree, int verbId) throws Exception{
+		String verb= tokens.get(verbId);
+		Set<Pair> verbChildrenSet = dependencyTree.get(verbId);
+		List<Action> output = new ArrayList<Action>();
+
+		/* 
+		 * Traverse children of the verb node, search for subjects and objects.
+		 */
+		List<Integer> subjs = new ArrayList<Integer>();
+		List<Integer> objs = new ArrayList<Integer>();
+		boolean isPassive = false;
+		List<Integer> buffer = new ArrayList<Integer>();
+		
+		for(Pair verbRelatedPair : verbChildrenSet){
+			if(verbRelatedPair.getDep().equals("nsubj")){
+				int id = verbRelatedPair.getPos();
+				subjs.add(id);
+			}else if(verbRelatedPair.getDep().equals("nmod")){
+				int id = verbRelatedPair.getPos();
+				buffer.add(id);
+			}else if(verbRelatedPair.getDep().equals("nsubjpass")){
+				int id = verbRelatedPair.getPos();
+				objs.add(id);
+			}else if(verbRelatedPair.getDep().equals("dobj")){
+				int id = verbRelatedPair.getPos();
+				objs.add(id);
+			}
+		}
+		if(isPassive){
+			subjs.addAll(buffer);
+		}
+		for(Integer subj : subjs){
+			String subject = getSubTree(dependencyTree, tokens, subj);
+			for(Integer obj : objs){
+				String object= getSubTree(dependencyTree, tokens, obj);
+				Action tmp = new Action(subject, verb, object);
+				output.add(tmp);
+			}
+		}
+		return output;
+	}
+	
+	/*
+	 * This method search subtree of a given id, and output the longest probase entity as a string
+	 */
+	private String getSubTree(List<Set<Pair>> dependencyTree, List<String> tokens, int id) throws Exception{
+		String head = tokens.get(id);
+		String result = head;
+		Set<Pair> subTree = dependencyTree.get(id);
+		for(Pair subTreePair : subTree){
+			String dep = subTreePair.getDep();
+			if(dep.equals("nmod")){
+				return getSubTree(dependencyTree, tokens, subTreePair.getPos());
+			}
+			if(dep.equals("compound") || dep.equals("amod")){
+				String modifier = tokens.get(subTreePair.getPos());
+				if(pb.isProbaseEntity(modifier + " "+ head)){
+					result = modifier + " " + head;
+				}
+			}
+		}
+		return result;
 	}
 	
 	private boolean actionDetected(String sentence, String[] action)throws Exception{
@@ -150,130 +314,5 @@ public class getActionOccurrence implements Runnable {
 			}
 		}
 		return false;
-	}
-	
-	private static boolean isGoodSentence(String query)throws Exception{
-		try{
-            //condition one:length
-            if (query.length() <= 10 || query.length() > 300){
-                return false;
-            }
-            //condition two: uniqueness 
-            //guaranteed by scope reducer (here ignore it)
-            
-            //condition 3: starts with capital letter; ends with .
-            if (query.charAt(0) < 'A' || query.charAt(0) > 'Z' || query.charAt(query.length() - 1) != '.'){
-                return false;
-            }
-            
-            // condition 4: number of words >=6 && <=20
-            String[] words = query.split("\\s+");
-            String cleanSentence = query.replaceAll("[^\\p{L}\\p{Nd}\\s+]+", "").toLowerCase();
-			String[] tokens = cleanSentence.split("\\s+");
-			
-            if (words.length < 4 || words.length > 30){
-                return false;
-            }
-            int badWords = 0, noisyCharacters = 0, numbers = 0;
-           
-            for (int i = 0; i < words.length; i++)
-            {
-                if (words[i].length() == 0) continue;
-                boolean isBad = true;
-                String temp = words[i];
-                for(int j = 0; j < temp.length(); j++){
-                    if(temp.charAt(j) >= 'A' && temp.charAt(j) <= 'Z' || temp.charAt(j) >= 'a' && temp.charAt(j) <= 'z')
-                        isBad = false;
-                    else
-                        if (!(temp.charAt(j) >= '0' && temp.charAt(j) <= '9' 
-                        	  	|| temp.charAt(j) == ',' || temp.charAt(j) == '.' 
-                        	  	|| temp.charAt(j) == '-' || temp.charAt(j) == '\"')){
-                        	noisyCharacters++;
-                        }
-                    if (temp.charAt(j) >= '0' && temp.charAt(j) <= '9') numbers++;
-                }
-                if (temp.length() == 1 
-                		&& (temp.charAt(0) >= 'A' && temp.charAt(0) <= 'Z' 
-                		|| temp.charAt(0) >= 'a' && temp.charAt(0) <= 'z') 
-                		&& !(temp.charAt(0) == 'a' || temp.charAt(0) == 'A' || temp.charAt(0) == 'I'))
-                    isBad = true;
-                if(isBad) badWords++;
-            }
-            // condition 5: characters other than letters,numbers,',','.',' ','-','"' <=6 
-            if (noisyCharacters > 6){
-                return false;
-            }
-            //condition 6: pure non-letter words + wrong single-letter words <=4
-            if (badWords > 4){
-                return false;
-            }
-            //condition 7: number characters should not exceed 10
-            if (numbers > 10){
-                return false;
-            }
-            
-            //condition 8: must contain at least one verb which appears in the verb dictionary
-            //condition 9: at least contains one Probase instance
-            boolean containsVerb = false;
-            for(String token : tokens){
-            	if(inflectionSet.contains(token)){
-            		containsVerb = true;
-            		break;
-            	}
-            }
-            
-            if(!containsVerb){
-            	return false;
-            }
-            
-            //condition 10: end with 1 punctuation.
-            int puncCount = 0;
-            for(int t = query.length() - 1; t >= 0; t--){
-                if (puncList.contains(Character.toString( query.charAt(t) ))){
-                    puncCount++;
-                }
-                else
-                    break;
-            }
-            if (puncCount > 1){
-                return false;
-            }
-            
-            //condition 11: All - Upper Case
-            int upperWin = 3;
-            for (int t = 0; t < words.length - upperWin; t++){
-            
-                int upperCount = 0;
-                for (int i = 0; i < upperWin; i++){
-                    String curWord = words[t + i];
-                    if (curWord.toUpperCase().equals(curWord))
-                        upperCount++;
-                    else
-                        break;
-                }
-                if (upperCount == 3){
-                    return false;
-                }
-            }
-            //condition 12: More than half words with upper captital
-            int capCount = 0;
-            for(String w : words){
-                if(w.charAt(0) >= 'A' && w.charAt(0) <= 'Z' && w.charAt(1) >= 'a' && w.charAt(1) <= 'z')
-                    capCount++;
-            }
-            
-            if (1.0 * capCount / words.length > 0.5){
-                return false;
-            }
-            
-            //condition 13: Special char
-            if (query.contains("/") || query.contains("\\")){
-                return false;
-            }
-        }
-        catch (Exception e1){
-            return false;
-        }
-        return true;
 	}
 }
