@@ -22,9 +22,12 @@ public class Wordnet {
 	final static private File WORDNET_FILE = new File("dat/wordnet/dict");
 	static private IRAMDictionary dict;
 	static private WordnetStemmer stemmer;
-	
-	
-	
+
+	public static void main(String[] args) throws Exception{
+		Wordnet wn = new Wordnet(false);
+		System.out.println(wn.isVerb("China"));
+	}
+
 	public Wordnet(boolean reside)throws Exception
 	{
 		dict = new RAMDictionary(WORDNET_FILE, ILoadPolicy.NO_LOAD);
@@ -73,31 +76,54 @@ public class Wordnet {
 		return relatedWordsIDList;
 	}
 	
-	public static List<String> stemNoun(String surfaceForm) throws Exception
-	{
-		return stemmer.findStems(surfaceForm, POS.NOUN);
+	public static List<String> stemNoun(String surfaceForm) throws Exception {
+		try{
+			List<String> result = stemmer.findStems(surfaceForm, POS.NOUN);
+			if(!result.isEmpty()) {
+				return result;
+			}
+		} catch(Exception e) {
+			System.out.println(surfaceForm + "encountered error!!");
+		}
+		
+		return new ArrayList<String>();
 	}
 	
-	public static String stemNounFirst(String surfaceForm)throws Exception
-	{
-		return stemmer.findStems(surfaceForm, POS.NOUN).get(0);
+	public static String stemNounFirst(String surfaceForm) throws Exception {
+		try{
+			List<String> result = stemmer.findStems(surfaceForm, POS.NOUN);
+			if(!result.isEmpty()) {
+				return result.get(0);
+			}
+		}
+		catch(Exception e){
+			System.out.println(surfaceForm + " encountered error!!");
+		}
+		return "";
 	}
 	
-	public static List<String> stemVerb(String surfaceForm) throws Exception
-	{
-		return stemmer.findStems(surfaceForm, POS.VERB);
+	public static List<String> stemVerb(String surfaceForm) {
+		try{
+			List<String> result = stemmer.findStems(surfaceForm, POS.VERB);
+			if(!result.isEmpty()) {
+				return result;
+			}
+		}catch( Exception e ){
+			System.out.println(surfaceForm + " encountered error!!");
+		}
+		return new ArrayList<String>();
 	}
 	
 	public static String stemVerbFirst(String surfaceForm) throws Exception
 	{
+		//System.out.println(surfaceForm);
 		List<String> stems = stemmer.findStems(surfaceForm, POS.VERB);
 		if(!stems.isEmpty())
 			return stems.get(0);
 		return "";
 	}
 	
-	public static List<String> getSynonymsForAllRoots(String surfaceForm, POS pos)throws Exception
-	{
+	public static List<String> getSynonymsForAllRoots(String surfaceForm, POS pos)throws Exception {
 		List<String> stems = stemmer.findStems(surfaceForm, pos);
 		List<String> result = new ArrayList<String>();
 		for(String stem : stems)
@@ -107,8 +133,7 @@ public class Wordnet {
 		return result;
 	}
 	
-	public static List<String> getNounGlossForAllRoots(String surfaceForm) throws Exception
-	{
+	public static List<String> getNounGlossForAllRoots(String surfaceForm) throws Exception {
 		List<String> stems = stemmer.findStems(surfaceForm, POS.NOUN);
 		List<String> result = new ArrayList<String>();
 		for(String stem : stems)
@@ -198,8 +223,16 @@ public class Wordnet {
 		}
 		return false;
 	}
-	
-	private static HashSet<String> getSynonyms(String stem, POS pos)throws Exception
+
+	public static boolean isVerb(String word) throws Exception{
+		if(word.isEmpty()){
+			return false;
+		}
+		IIndexWord idxWord = dict.getIndexWord(word, POS.VERB);
+		return idxWord != null;
+	}
+
+	public static HashSet<String> getSynonyms(String stem, POS pos)throws Exception
 	{
 		IIndexWord idxWord = dict.getIndexWord(stem, pos);
 		HashSet<String> result = new HashSet<String>();
