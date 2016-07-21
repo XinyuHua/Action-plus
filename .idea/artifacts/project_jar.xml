@@ -1,0 +1,31 @@
+<component name="ArtifactManager">
+  <artifact type="jar" build-on-make="true" name="project:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/project_jar</output-path>
+    <root id="archive" name="project.jar">
+      <element id="module-output" name="project" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../../data/jars/stanford_nlp/stanford-postagger-2015-12-09/stanford-postagger.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../../data/jars/stanford_nlp/stanford-postagger-2015-12-09/stanford-postagger-3.6.0.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../../data/jars/stanford_nlp/stanford-postagger-2015-12-09/stanford-postagger-3.6.0-javadoc.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../../data/jars/stanford_nlp/stanford-postagger-2015-12-09/stanford-postagger-3.6.0-sources.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../../data/jars/stanford_nlp/stanford-corenlp-full-2015-04-20/xom.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../../data/jars/stanford_nlp/stanford-corenlp-full-2015-04-20/jollyday.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../../data/jars/stanford_nlp/stanford-corenlp-full-2015-04-20/protobuf.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../../data/jars/stanford_nlp/stanford-corenlp-full-2015-04-20/ejml-0.23.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../../data/jars/stanford_nlp/stanford-corenlp-full-2015-04-20/joda-time.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../../data/jars/stanford_nlp/stanford-corenlp-full-2015-04-20/javax.json.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../../data/jars/stanford_nlp/stanford-corenlp-full-2015-04-20/ejml-0.23-src.zip" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../../data/jars/stanford_nlp/stanford-corenlp-full-2015-04-20/xom-1.2.10-src.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../../data/jars/stanford_nlp/stanford-corenlp-full-2015-04-20/joda-time-2.1-sources.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../../data/jars/stanford_nlp/stanford-corenlp-full-2015-04-20/jollyday-0.4.7-sources.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../../data/jars/stanford_nlp/stanford-corenlp-full-2015-04-20/stanford-corenlp-3.5.2.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../../data/jars/stanford_nlp/stanford-corenlp-full-2015-04-20/javax.json-api-1.0-sources.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../../data/jars/stanford_nlp/stanford-corenlp-full-2015-04-20/stanford-corenlp-3.5.2-models.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../../data/jars/stanford_nlp/stanford-corenlp-full-2015-04-20/stanford-corenlp-3.5.2-javadoc.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../../data/jars/stanford_nlp/stanford-corenlp-full-2015-04-20/stanford-corenlp-3.5.2-sources.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../../data/jars/edu.mit.jwi_2.4.0.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../../data/jars/commons-lang3-3.3.2.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../../data/jars/simplenlg-v4.4.3/simplenlg-v4.4.3.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../../data/jars/commons-io-2.4.jar" path-in-jar="/" />
+    </root>
+  </artifact>
+</component>

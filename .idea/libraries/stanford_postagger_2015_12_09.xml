@@ -1,0 +1,19 @@
+<component name="libraryTable">
+  <library name="stanford-postagger-2015-12-09">
+    <CLASSES>
+      <root url="file://$PROJECT_DIR$/../../data/jars/stanford_nlp/stanford-postagger-2015-12-09" />
+      <root url="file://$PROJECT_DIR$/../../data/jars/stanford_nlp/stanford-corenlp-full-2015-04-20" />
+    </CLASSES>
+    <JAVADOC>
+      <root url="file://$PROJECT_DIR$/../../data/jars/stanford_nlp/stanford-corenlp-full-2015-04-20" />
+    </JAVADOC>
+    <SOURCES>
+      <root url="file://$PROJECT_DIR$/../../data/jars/stanford_nlp/stanford-postagger-2015-12-09" />
+      <root url="file://$PROJECT_DIR$/../../data/jars/stanford_nlp/stanford-corenlp-full-2015-04-20" />
+    </SOURCES>
+    <jarDirectory url="file://$PROJECT_DIR$/../../data/jars/stanford_nlp/stanford-corenlp-full-2015-04-20" recursive="false" />
+    <jarDirectory url="file://$PROJECT_DIR$/../../data/jars/stanford_nlp/stanford-postagger-2015-12-09" recursive="false" />
+    <jarDirectory url="file://$PROJECT_DIR$/../../data/jars/stanford_nlp/stanford-corenlp-full-2015-04-20" recursive="false" type="SOURCES" />
+    <jarDirectory url="file://$PROJECT_DIR$/../../data/jars/stanford_nlp/stanford-postagger-2015-12-09" recursive="false" type="SOURCES" />
+  </library>
+</component>

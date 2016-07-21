@@ -19,8 +19,8 @@ import edu.stanford.nlp.util.CoreMap;
 public class Lemmatizer {
 	 	
 		protected StanfordCoreNLP pipeline;
-		MaxentTagger tagger =  new MaxentTagger("dat/english-left3words-distsim.tagger");
-		
+		MaxentTagger tagger =  new MaxentTagger("lib/english-left3words-distsim.tagger");
+
 	    public Lemmatizer() {
 	        // Create StanfordCoreNLP object properties, with POS tagging
 	        // (required for lemmatization), and lemmatization

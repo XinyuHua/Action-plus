@@ -11,21 +11,31 @@ import simplenlg.framework.WordElement;
 import simplenlg.lexicon.XMLLexicon;
 import simplenlg.realiser.english.Realiser;
 
+
+/*
+	This class only has one task, to create a list containing possible inflections
+	of the action list.
+
+	Last Modified: 2016-04-02
+ */
+
 public class Inflector{
-	
-	private final static String VERB_URL = "dat/action/verb_10.txt";
-	private final static String ACTION_URL = "dat/action/action_10.txt";
-	
+
+	private final static String VERB_URL = "dat/action/verb/verb.dict";
+	private final static String INF_NEW_URL = "dat/action/verb/inflection.dict";
+
 	public static void main(String[] args)throws Exception{
-		createInflectionsForActions();
+		createInflectionsForVerbs();
 	}
-	
-	public static void createInflectionsForActions()throws Exception{
-		BufferedReader br = new BufferedReader(new FileReader(ACTION_URL));
-		BufferedWriter bw = new BufferedWriter(new FileWriter(VERB_URL));
+
+	public static void createInflectionsForVerbs()throws Exception{
+		BufferedReader br = new BufferedReader(new FileReader(VERB_URL));
+		BufferedWriter bw = new BufferedWriter(new FileWriter(INF_NEW_URL));
 		String line = null;
+		int cnter = 0;
 		while((line = br.readLine())!=null){
-			String[] inflections = getInflections(line.split("\\s+")[1]);
+			System.out.println(cnter++);
+			String[] inflections = getInflections(line);
 			for(String i : inflections){
 				bw.append(i + "\t");
 			}
@@ -34,7 +44,7 @@ public class Inflector{
 		br.close();
 		bw.close();
 	}
-	
+
 	public static String[] getInflections(String infinitive)throws Exception{
 		String[] result = new String[5]; // do, does, doing, did, done
 		XMLLexicon lexicon = new XMLLexicon("D:\\xinyu\\data\\jars\\simplenlg-v4.4.3\\res\\default-lexicon.xml");

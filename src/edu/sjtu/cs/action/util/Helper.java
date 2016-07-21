@@ -1,215 +1,373 @@
 package edu.sjtu.cs.action.util;
+import edu.sjtu.cs.action.knowledgebase.ProbaseClient;
+import edu.sjtu.cs.action.main.*;
 import java.io.*;
+import java.sql.SQLSyntaxErrorException;
 import java.util.*;
 
 public class Helper {
 
 	final private static String BING_NEWS_URL = "dat/news/bing_news_ready.tsv";
 	final private static String BING_NEWS_UNIQUE_URL = "dat/news/bing_news_unique.tsv";
-	final private static String NOUN_OCC_URL = "dat/noun_occurrence/";
-	final private static String ACTION_OCC_URL = "dat/action_occurrence/";
-	final private static String REDUCED_DIR_URL = "dat/reduced/";
+	final private static String BING_NEWS_SLICED_URL = "dat/news/bing_news_sliced/";
+	final private static String NOUN_OCC_URL = "dat/occurrence/noun_occurrence/";
+	final private static String ACTION_OCC_URL = "dat/occurrence/action_occurrence/";
 	final private static String[] VERB_TAG = {"VB", "VBD", "VBG", "VBN", "VBP", "VBZ"};
-	private static String[] DUMMY_VERBS = {"be","am","is","are","was","were","have","has","had","get","got","gets"};
-	public static void main(String[] args)throws Exception{
-		extractActionDemo();
-	}
-	
-	public static void extractActionDemo()throws Exception{
-		String subjects[] = {"Russia", "United States", "United Kingdom and France", "He"};
-		String objects[] = {"Iraq", "Saudi Arabia", "Iraq and Saudi Arabia", "big dog"};
-		String verbs[] = {" invaded ", " has invaded ", " was invaded by ", " eats "};
-		
-		String sentence = subjects[3] + verbs[3] + objects[3] + ".";
-		
-		/*
-		 * Initialize verbTagSet and dummyVerbSet.
-		 * verbTagSet stores postag labels used to represent verbs.
-		 * dummyVerbSet stores inflections of verbs that should be ignored.
-		 */
-				
-		HashSet<String> verbTagSet = new HashSet<String>();
-		HashSet<String> dummyVerbSet = new HashSet<String>();
-		for(String s : VERB_TAG){
-			verbTagSet.add(s);
-		}
-		for(String s : DUMMY_VERBS){
-			dummyVerbSet.add(s);
-		}
-		System.out.println("Sentence: " + sentence);
-		
-		/*
-		 * Parse and postag document. Results are stored in two lists.
-		 * Each sentence in the document is represented by dependency tree as
-		 * an element in the first list, and is represented by postag labels 
-		 * as and element in the second list.
-		 */
-		Parser parser = new Parser();
-		List<List<String>> result = parser.dependencyParseDocument(sentence);
-		//System.out.println("result size:" + result.size());
-		List<String> parsed_result = result.get(0);
-		List<String> postag_result = result.get(1);
-		//System.out.println("parsed size: " + parsed_result.size());
-		String depStr = parsed_result.get(0);
-		String[] posStr = postag_result.get(0).replaceAll("\\[|\\]","").split(",\\s+");
-		
-		/*
-		 *  Initialize dependency tree. And fill in indeces accordingly.
-		 *  Elements in dependency tree are in the format: Pair(dep, idx)
-		 */
-		List<Set<Pair>> dependencyTree = new ArrayList<Set<Pair>>();
-		for(int i = 0; i < posStr.length + 1; ++i){
-			dependencyTree.add(new HashSet<Pair>());
-		}
-		
-		for(String parsedPart : depStr.split("\\) ")){
-			String dep = parsedPart.substring(0, parsedPart.indexOf("("));
-			String content = parsedPart.substring(parsedPart.indexOf("(") + 1);
-			String[] sp = content.split(",\\s+");
-			int left = Integer.parseInt(sp[0].substring(sp[0].indexOf("-") + 1));
-			int right = Integer.parseInt(sp[1].substring(sp[1].indexOf("-") + 1));
-			Set<Pair> set = dependencyTree.get(left);
-			set.add(new Pair(dep,right));
-		}
-		
-		/*
-		 * Display dependency tree
-		 */
-		int cnt = 0;
-		for(Set<Pair> set : dependencyTree){
-			System.out.print(cnt + "\t");
-			for(Pair p : set){
-				System.out.print(p + " ");
-			}
-			System.out.println();
-			cnt++;
-		}
-		
-		/*
-		 * Initialize verbIds list and tokens list.
-		 * verbIds list stores indeces of verbs, tokens list stores tokens 
-		 * in the original sentence, in the original order. 
-		 */
-		cnt = 1;
-		List<Integer> verbIds = new ArrayList<Integer>();
-		List<String> tokens = new ArrayList<String>();
-		tokens.add("ROOT");
-		for(String pos : posStr){
-			pos = pos.trim();
-			String sp[] = pos.split("/");
-			String token = sp[0];
-			String TAG = sp[1];
-			if(verbTagSet.contains(TAG) && !dummyVerbSet.contains(token)){
-				verbIds.add(cnt);
-			}
-			tokens.add(token);
-			cnt++;
-		}
-		
-		/*
-		 * Search actions in the document.
-		 */
-		List<Action> actionList = searchAction(tokens, dependencyTree, verbIds);
-		for(Action ac : actionList){
-			System.out.println(ac);
-		}
-	}
-	
-	/*
-	 * This method search actions in the document, it starts searching from 
-	 * each verb stored in the verbIds list.
-	 */
-	private static List<Action> searchAction(List<String> tokens, List<Set<Pair>> dependencyTree, List<Integer> verbIds){
-		List<Action> output = new ArrayList<Action>();
-		for(Integer id : verbIds){
-			output.addAll(searchActionForVerb(tokens,dependencyTree,id));
-		}
-		return output;
-	}
-	
-	/*
-	 * This method search action given a certain verbId, it might find multiple actions given a single verb.
-	 */
-	private static List<Action> searchActionForVerb(List<String> tokens, List<Set<Pair>> dependencyTree, int verbId){
-		String verb= tokens.get(verbId);
-		Set<Pair> verbChildrenSet = dependencyTree.get(verbId);
-		List<Action> output = new ArrayList<Action>();
+	final private static String NOUN_EXAM_URL = "dat/noun_concept/noun.exam";
+	final private static String EXAM_IDX_URL = "dat/exam/index/";
+	final private static String EXAM_OUT_URL = "dat/exam/news/";
+	final private static String EVAL_URL = "dat/evaluation/";
+	private static final String ABC_NEWS_PATH = "dat/evaluation/abc_news/eval_package/abc_news/";
+	private static final String ABC_LEMMATIZE_PATH = "dat/evaluation/abc_news/eval_package/abc_news_lemma/";
 
-		/* 
-		 * Traverse children of the verb node, search for subjects and objects.
-		 */
-		List<Integer> subjs = new ArrayList<Integer>();
-		List<Integer> objs = new ArrayList<Integer>();
-		
-		for(Pair verbRelatedPair : verbChildrenSet){
-			if(verbRelatedPair.getDep().equals("nsubj")){
-				int id = verbRelatedPair.getPos();
-				subjs.add(id);
-			}else if(verbRelatedPair.getDep().equals("nmod")){
-				int id = verbRelatedPair.getPos();
-				subjs.add(id);
-			}else if(verbRelatedPair.getDep().equals("nsubjpass")){
-				int id = verbRelatedPair.getPos();
-				objs.add(id);
-			}else if(verbRelatedPair.getDep().equals("dobj")){
-				int id = verbRelatedPair.getPos();
-				objs.add(id);
-			}
-		}
-		
-		for(Integer subj : subjs){
-			String subject = getSubTree(dependencyTree, tokens, subj);
-			for(Integer obj : objs){
-				String object= getSubTree(dependencyTree, tokens, obj);
-				Action tmp = new Action(subject, verb, object);
-				output.add(tmp);
-			}
-		}
-		return output;
+	// Files necessary to find action instances for action classes
+	private static final String AC_EVAL_LIST_URL = "dat/action/concept_100.txt";
+	private static final String INSTANCE_OCC_URL = "dat/tmp/instance_occurrence_tmp/";
+	private static final String INSTANCE_IN_AC_URL = "dat/tmp/instance_in_action_tmp/";
+	private static final String CONCEPT_WITH_INSTANCE_URL = "dat/tmp/concept_occurrence_tmp/eval/";
+	private static HashMap<String, List<String>> ac2instance;
+
+	final private static int offset = 55914;
+	static ProbaseClient pb;
+	static Lemmatizer lemmatizer;
+	private static String[] DUMMY_VERBS = {"be","am","is","are","was","were","have","has","had","get","got","gets"};
+	private static List<String> conceptEvalList;
+
+	public static void main(String[] args)throws Exception{
+	//	findExampleNews();
+		findInstanceForAction();
 	}
-	
+
 	/*
-	 * This method search subtree of a given id, and output the longest probase entity as a string
+	This method output the list of instances for a each of the action classes specified in AC_EVAL_LIST_URL
 	 */
-	private static String getSubTree(List<Set<Pair>> dependencyTree, List<String> tokens, int id){
-		String head = tokens.get(id);
-		String result = head;
-		Set<Pair> subTree = dependencyTree.get(id);
-		for(Pair subTreePair : subTree){
-			String dep = subTreePair.getDep();
-			if(dep.equals("compound") || dep.equals("amod")){
-				String modifier = tokens.get(subTreePair.getPos());
-				result = modifier + " " + head;
+	public static void findInstanceForAction()throws Exception{
+
+		ac2instance = new HashMap<>();
+		// Load concept eval data
+		BufferedReader evalReader = new BufferedReader(new FileReader(AC_EVAL_LIST_URL));
+		String line;
+		conceptEvalList = new ArrayList<>();
+		while((line = evalReader.readLine())!=null){
+			String ac = line.split(":")[0];
+			conceptEvalList.add(ac);
+		}
+		evalReader.close();
+
+		// Go through all the instance data
+		for(int i = 0; i < 100; ++i) {
+			BufferedReader instReader = new BufferedReader(new FileReader(CONCEPT_WITH_INSTANCE_URL + i + ".txt"));
+			while ((line = instReader.readLine()) != null) {
+				String[] lineSplit = line.split("\t");
+				for (int pairIdx = 1; pairIdx < lineSplit.length; pairIdx++) {
+					String aiPair = lineSplit[pairIdx];
+					String action = aiPair.substring(0, aiPair.indexOf("("));
+					String instance = aiPair.substring(aiPair.indexOf("(") + 1, aiPair.indexOf(")"));
+					if (!ac2instance.containsKey(action)) {
+						ac2instance.put(action, new ArrayList<>());
+					}
+					ac2instance.get(action).add(instance);
+				}
+			}
+			instReader.close();
+		}
+
+
+		// Rank and write to file
+		int acIdx = 0;
+		int acTotal = ac2instance.size();
+		for(String ac : ac2instance.keySet()){
+			System.out.println("Writing " + acIdx + "th(" + acTotal + ") ac to disk...");
+			acIdx ++;
+			List<String> instanceList = ac2instance.get(ac);
+			HashMap<String, Integer> freqMap = new HashMap<>();
+			for(String s : instanceList){
+				if(!freqMap.containsKey(s)){
+					freqMap.put(s,1);
+				}else{
+					freqMap.put(s, freqMap.get(s) + 1);
+				}
+			}
+
+			ValueComparatorInt bvc = new ValueComparatorInt(freqMap);
+			TreeMap<String, Integer> result = new TreeMap<>(bvc);
+			result.putAll(freqMap);
+			BufferedWriter bw = new BufferedWriter(new FileWriter(INSTANCE_IN_AC_URL + ac + ".txt"));
+
+			for(String s : result.keySet()){
+				bw.append(s + "\t" + freqMap.get(s));
+				bw.newLine();
+			}
+			bw.close();
+		}
+
+	}
+
+
+	public static String getClassFromInstance(String instance) throws Exception{
+		String result = "";
+		String[] splitted = instance.split("_");
+		String verb = splitted[1];
+		for(String ac : conceptEvalList){
+			String[] acSplit = ac.split("_");
+			String acVerb = acSplit[1];
+
+			if(!acVerb.equals(verb)) continue;
+
+			if(splitted.length == acSplit.length){
+				if(splitted.length == 3){
+					if(pb.getPop(splitted[0], acSplit[0]) > 10 && pb.getPop(splitted[2], acSplit[2]) > 10){
+						result = ac;
+						break;
+					}
+				}else{
+					if(pb.getPop(splitted[0], acSplit[0]) > 10){
+						result = ac;
+						break;
+					}
+				}
 			}
 		}
 		return result;
 	}
-	
-	public static void removeDuplicates()throws Exception{
-		BufferedReader br = new BufferedReader( new FileReader( BING_NEWS_URL) );
-		BufferedWriter bw = new BufferedWriter( new FileWriter( BING_NEWS_UNIQUE_URL ));
+
+	public static void findExampleNews()throws Exception{
+		BufferedReader br = new BufferedReader(new FileReader("dat/news/bing_news_sliced/bing_news_5.tsv"));
 		String line = null;
-		int cnter = 0;
-		int lineCnter = 0;
-		HashSet<String> titleSet = new HashSet<>();
+		boolean foundInTitle = false;
+		int lineNum = 0;
 		while((line = br.readLine())!=null){
-			String title = line.split("\t")[6];
-			lineCnter++;
-			if(lineCnter % 100000 == 0)
-				System.out.println("Line: " + lineCnter);
-			if(!titleSet.contains(title)){
-				bw.write(line + "\n");
-				titleSet.add(title);
+			lineNum += 1;
+			foundInTitle = false;
+			String[] lineSplit = line.split("\t");
+			String title = lineSplit[ 0 ];
+			String body = lineSplit[ 1 ];
+			for(String s :title.split("\\s+")){
+				if(s.toLowerCase().equals("disaster")){
+					foundInTitle = true;
+					System.out.println(title);
+					break;
+				}
 			}
-			else{
-				cnter++;
-				if(cnter % 1000 == 0)
-					System.out.println("Duplicates: " + cnter);
+
+			if(foundInTitle){
+				for(String s : body.split("\\s+")){
+					if(s.toLowerCase().contains("destro")){
+						System.out.println(lineNum);
+						break;
+					}
+				}
 			}
 		}
-		bw.close();
 		br.close();
 	}
-	
+
+
+	/*
+	 * This method parse bing news(body part), and also produce postag infomation
+	 */
+
+
+
+	public static void lemmatizeFile()throws Exception{
+
+		BufferedReader listBr = new BufferedReader(new FileReader(EVAL_URL + "eval_10.txt"));
+		String line;
+		while((line = listBr.readLine())!=null){
+			BufferedReader posBr = new BufferedReader(new FileReader(EVAL_URL + "groundtruth/" + line + ".pos"));
+			BufferedWriter posLemWriter = new BufferedWriter(new FileWriter(EVAL_URL + "groundtruth_lemma/" + line + ".poslemma"));
+			String innerLine = null;
+			while((innerLine = posBr.readLine())!=null){
+				List<String> lemmatized = lemmatizer.lemmatize(innerLine);
+				for(String lemma : lemmatized) {
+					if(lemma.contains("www") || lemma.contains(".com") || lemma.length() <= 2) {
+						continue;
+					}
+
+					if(lemma.replaceAll("[^a-zA-Z]","").length() != 0) {
+						if(lemma.contains("/")) {
+							String[] splitted = lemma.split("/");
+							for(String s : splitted) {
+								posLemWriter.append(s + " ");
+							}
+						} else {
+							posLemWriter.append(lemma + " ");
+						}
+					}
+				}
+				posLemWriter.newLine();
+			}
+			posLemWriter.close();
+			posBr.close();
+			System.out.println(line + ".pos finished.");
+
+			BufferedReader negBr = new BufferedReader(new FileReader(EVAL_URL + "groundtruth/" + line + ".neg"));
+			BufferedWriter negLemWriter = new BufferedWriter(new FileWriter(EVAL_URL + "groundtruth_lemma/" + line + ".neglemma"));
+
+			while((innerLine = negBr.readLine())!=null){
+				List<String> lemmatized = lemmatizer.lemmatize(innerLine);
+				for(String lemma : lemmatized) {
+					if(lemma.contains("www") || lemma.contains(".com") || lemma.length() <= 2) {
+						continue;
+					}
+
+					if(lemma.replaceAll("[^a-zA-Z]","").length() != 0) {
+						if(lemma.contains("/")) {
+							String[] splitted = lemma.split("/");
+							for(String s : splitted) {
+								negLemWriter.append(s + " ");
+							}
+						} else {
+							negLemWriter.append(lemma + " ");
+						}
+					}
+				}
+				negLemWriter.newLine();
+			}
+			negLemWriter.close();
+			negBr.close();
+			System.out.println(line + ".neg finished.");
+		}
+		listBr.close();
+	}
+
+	public static void searchIndex()throws Exception{
+		String toSearch = "Amateur historian seeks Otter Lake";
+		int globalIdx = 0;
+		String line = null;
+		for(int i = 0; i < 99; ++i) {
+			System.out.println(i);
+			BufferedReader br = new BufferedReader(new FileReader(BING_NEWS_SLICED_URL + "bing_news_" + i + ".tsv"));
+			while((line = br.readLine())!=null) {
+				String title = line.split("\t")[0];
+				if(title.contains(toSearch)) {
+					System.out.println("-----Found-----" + globalIdx + "---------------");
+					return;
+				}
+				globalIdx++;
+			}
+			br.close();
+		}
+	}
+
+	public static void getRandomIdxToExam()throws Exception{
+
+		/*
+		Load noun list to toShuffleMap
+		 */
+		System.out.println("Loading noun list...");
+		HashMap<String, List<Integer>> toShuffleMap = new HashMap<>();
+		BufferedReader examFileReader = new BufferedReader(new FileReader(NOUN_EXAM_URL));
+		String line = null;
+		while((line = examFileReader.readLine())!=null) {
+			if(line.equals(""))
+				continue;
+			toShuffleMap.put(line, new ArrayList<>());
+		}
+		examFileReader.close();
+
+		/*
+		Load indeces from noun
+		 */
+		System.out.println("Loading original indeces...");
+		for(String noun : toShuffleMap.keySet()) {
+			String fileName = EXAM_IDX_URL + noun + ".idx";
+			BufferedReader br = new BufferedReader(new FileReader(fileName));
+			while((line = br.readLine())!=null) {
+				Integer idx = Integer.parseInt(line);
+				toShuffleMap.get(noun).add(idx);
+			}
+			br.close();
+		}
+
+		HashSet<Integer> idxSet = new HashSet<>();
+		HashMap<Integer, List<Integer>> newsIdxMap = new HashMap<>();
+		Random randomGenerator = new Random();
+		int nounIdx = 0;
+		for(String noun : toShuffleMap.keySet()) {
+			System.out.println("Get random for " + nounIdx);
+			List<Integer> fullIdxList = toShuffleMap.get(noun);
+			HashSet<Integer> localIdxSet = new HashSet<>();
+			for(int i = 0; i < 10; ++i){
+				int random = randomGenerator.nextInt(fullIdxList.size());
+				localIdxSet.add(random);
+			}
+
+			BufferedReader br = new BufferedReader(new FileReader(EXAM_IDX_URL + noun + ".idx"));
+			int cnter = 0;
+			while((line = br.readLine()) != null) {
+				if(localIdxSet.contains(cnter)) {
+					int index = Integer.parseInt(line);
+					idxSet.add(index);
+					if(!newsIdxMap.containsKey(index)) {
+						newsIdxMap.put(index, new ArrayList<>());
+					}
+					newsIdxMap.get(index).add(nounIdx);
+				}
+				cnter++;
+			}
+			br.close();
+			nounIdx++;
+		}
+		System.out.println("Map size = " + newsIdxMap.size());
+
+		List<Integer> orderdIndexSet = new ArrayList<>();
+		orderdIndexSet.addAll(idxSet);
+		Collections.sort(orderdIndexSet);
+		System.out.println(orderdIndexSet.size() + " news to be loaded.");
+		List<String> newsList = new ArrayList<>();
+		int fileId = 0;
+		int cnter = -1;
+		System.out.println("Reading news...");
+		BufferedReader br = new BufferedReader(new FileReader(BING_NEWS_SLICED_URL + "bing_news_" + fileId + ".tsv"));
+		for(int idx : orderdIndexSet){
+			int curFileId = idx / offset;
+			int curLineId = idx % offset;
+			if(curFileId != fileId) {
+				br.close();
+				System.out.println("traversing " + curFileId + "th news...");
+				br = new BufferedReader(new FileReader(BING_NEWS_SLICED_URL + "bing_news_" + curFileId + ".tsv"));
+				fileId = curFileId;
+				cnter = -1;
+			}
+
+			while((line = br.readLine()) != null) {
+				cnter++;
+				if(cnter == curLineId) {
+					newsList.add(line);
+					break;
+				}
+			}
+
+		}
+
+		System.out.println(newsList.size() + " news loaded.");
+		BufferedWriter[] bwArray = new BufferedWriter[toShuffleMap.size()];
+		cnter = 0;
+		for(String noun : toShuffleMap.keySet()){
+			String fileName = EXAM_OUT_URL + noun + ".news";
+			bwArray[ cnter ] = new BufferedWriter(new FileWriter(fileName));
+			cnter++;
+		}
+		System.out.println("Writing to disk...");
+		int i = 0;
+		for(int idx : orderdIndexSet) {
+
+			List<Integer> nounsToWrite = newsIdxMap.get(idx);
+			System.out.println(idx +"th news has " + nounsToWrite.size() + " nous to write.");
+			for(Integer j : nounsToWrite) {
+				bwArray[ j ].append(newsList.get(i));
+				System.out.println("Writing...");
+				bwArray[ j ].newLine();
+			}
+			i++;
+		}
+
+		for(int j = 0; j < bwArray.length; ++j){
+			bwArray[ j ].close();
+		}
+	}
+
+
 }
 

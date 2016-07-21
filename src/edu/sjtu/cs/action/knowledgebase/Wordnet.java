@@ -19,15 +19,10 @@ import edu.mit.jwi.morph.WordnetStemmer;
 
 public class Wordnet {
 	
-	final static private File WORDNET_FILE = new File("dat/wordnet/dict");
+	final static private File WORDNET_FILE = new File("lib/wordnet/dict");
 	static private IRAMDictionary dict;
 	static private WordnetStemmer stemmer;
-
-	public static void main(String[] args) throws Exception{
-		Wordnet wn = new Wordnet(false);
-		System.out.println(wn.isVerb("China"));
-	}
-
+	static private HashSet<String> actionalLexicalInfo;
 	public Wordnet(boolean reside)throws Exception
 	{
 		dict = new RAMDictionary(WORDNET_FILE, ILoadPolicy.NO_LOAD);
@@ -40,8 +35,26 @@ public class Wordnet {
 		}
 		
 		stemmer = new WordnetStemmer(dict);
+		actionalLexicalInfo = new HashSet<>();
+		actionalLexicalInfo.add("noun.act");
+		actionalLexicalInfo.add("noun.event");
+		actionalLexicalInfo.add("noun.process");
+		actionalLexicalInfo.add("noun.state");
+
 	}
-	
+
+	public static HashSet<String> getAllNoun() throws Exception{
+		System.out.println("start traversing wordnet noun dict...");
+		HashSet<String> nounSet = new HashSet<String>();
+		for(Iterator<IIndexWord> i = dict.getIndexWordIterator(POS.NOUN); i.hasNext();){
+			for(IWordID wid : i.next().getWordIDs()){
+				IWord word = dict.getWord(wid);
+				nounSet.add( word.getLemma() );
+			}
+		}
+		return nounSet;
+	}
+
 	public static HashSet<String> getActNoun()throws Exception{
 		HashSet<String> nounSet = new HashSet<String>();
 		int j =0 ;
@@ -51,6 +64,74 @@ public class Wordnet {
 				ISynset synset = word.getSynset();
 				String LexFileName = synset.getLexicalFile().getName();
 				if(LexFileName.equals("noun.act")){
+					nounSet.add( word.getLemma() );
+				}
+			}
+		}
+		return nounSet;
+	}
+
+
+	public static HashSet<String> getLexicalFileInfo(String word)throws Exception{
+		HashSet<String> lexicalInfos = new HashSet<>();
+		String stem = stemNounFirst(word);
+
+		IIndexWord idxWord = dict.getIndexWord(stem, POS.NOUN);
+		if(idxWord == null){
+			return lexicalInfos;
+		}
+		for(IWordID wordID : idxWord.getWordIDs()){
+			ISynset synset = dict.getWord(wordID).getSynset();
+			String LexFileName = synset.getLexicalFile().getName();
+			lexicalInfos.add(LexFileName);
+		}
+		return lexicalInfos;
+	}
+
+	public static HashSet<String> getEventNoun()throws Exception{
+		HashSet<String> nounSet = new HashSet<String>();
+		int j =0 ;
+		for(Iterator<IIndexWord> i = dict.getIndexWordIterator(POS.NOUN); i.hasNext();){
+			for(IWordID wid : i.next().getWordIDs()){
+				IWord word = dict.getWord(wid);
+				ISynset synset = word.getSynset();
+				String LexFileName = synset.getLexicalFile().getName();
+				if(LexFileName.equals("noun.event")){
+					if(word.getLemma().equals("wipeout")){
+						System.out.println("Bingo!");
+					}
+					nounSet.add( word.getLemma() );
+				}
+			}
+		}
+		return nounSet;
+	}
+
+	public static HashSet<String> getProcessNoun()throws Exception{
+		HashSet<String> nounSet = new HashSet<String>();
+		int j =0 ;
+		for(Iterator<IIndexWord> i = dict.getIndexWordIterator(POS.NOUN); i.hasNext();){
+			for(IWordID wid : i.next().getWordIDs()){
+				IWord word = dict.getWord(wid);
+				ISynset synset = word.getSynset();
+				String LexFileName = synset.getLexicalFile().getName();
+				if(LexFileName.equals("noun.process")){
+					nounSet.add( word.getLemma() );
+				}
+			}
+		}
+		return nounSet;
+	}
+
+	public static HashSet<String> getStateNoun()throws Exception{
+		HashSet<String> nounSet = new HashSet<String>();
+		int j =0 ;
+		for(Iterator<IIndexWord> i = dict.getIndexWordIterator(POS.NOUN); i.hasNext();){
+			for(IWordID wid : i.next().getWordIDs()){
+				IWord word = dict.getWord(wid);
+				ISynset synset = word.getSynset();
+				String LexFileName = synset.getLexicalFile().getName();
+				if(LexFileName.equals("noun.state")){
 					nounSet.add( word.getLemma() );
 				}
 			}
@@ -83,7 +164,7 @@ public class Wordnet {
 				return result;
 			}
 		} catch(Exception e) {
-			System.out.println(surfaceForm + "encountered error!!");
+			System.out.println(surfaceForm + "encountered error!!(From Wordnet StemNoun)");
 		}
 		
 		return new ArrayList<String>();
@@ -97,7 +178,8 @@ public class Wordnet {
 			}
 		}
 		catch(Exception e){
-			System.out.println(surfaceForm + " encountered error!!");
+			return "";
+			//System.out.println(surfaceForm + " encountered error!! Can't stem" + surfaceForm);
 		}
 		return "";
 	}
@@ -117,9 +199,14 @@ public class Wordnet {
 	public static String stemVerbFirst(String surfaceForm) throws Exception
 	{
 		//System.out.println(surfaceForm);
-		List<String> stems = stemmer.findStems(surfaceForm, POS.VERB);
-		if(!stems.isEmpty())
-			return stems.get(0);
+		try{
+			List<String> stems = stemmer.findStems(surfaceForm, POS.VERB);
+			if(!stems.isEmpty())
+				return stems.get(0);
+		}catch (Exception e) {
+			return "";
+		}
+
 		return "";
 	}
 	
@@ -128,7 +215,7 @@ public class Wordnet {
 		List<String> result = new ArrayList<String>();
 		for(String stem : stems)
 		{
-			result.addAll( getSynonyms( stem, pos ) );
+			result.addAll( getSynonyms(stem, pos) );
 		}
 		return result;
 	}
@@ -138,7 +225,7 @@ public class Wordnet {
 		List<String> result = new ArrayList<String>();
 		for(String stem : stems)
 		{
-			result.addAll( getNounGloss( stem ) );
+			result.addAll( getNounGloss(stem) );
 		}
 		return result;
 	}
@@ -149,7 +236,7 @@ public class Wordnet {
 		List<String> result = new ArrayList<String>();
 		for(String stem : stems)
 		{
-			result.addAll( getHypernyms( stem ) );
+			result.addAll( getHypernyms(stem) );
 		}
 		return result;
 	}
@@ -232,6 +319,32 @@ public class Wordnet {
 		return idxWord != null;
 	}
 
+	public static boolean isNoun(String word) throws Exception{
+		if(word.isEmpty()){
+			return false;
+		}
+		String stem = stemNounFirst(word);
+		if(stem.isEmpty()){
+			return false;
+		}
+
+		IIndexWord idxWord = dict.getIndexWord(stem, POS.NOUN);
+		return idxWord != null;
+	}
+
+	public static boolean isActionalNoun(String word)throws Exception{
+		if(!isNoun(word)){
+			return false;
+		}
+
+		if(!Collections.disjoint(getLexicalFileInfo(word), actionalLexicalInfo)){
+			return true;
+		}
+
+		return false;
+
+	}
+
 	public static HashSet<String> getSynonyms(String stem, POS pos)throws Exception
 	{
 		IIndexWord idxWord = dict.getIndexWord(stem, pos);
@@ -260,6 +373,24 @@ public class Wordnet {
 		}
 		return result;
 	}
+
+
+	public static List<String> getVerbGloss(String stem)throws Exception{
+		IIndexWord idxWord = dict.getIndexWord(stem, POS.VERB);
+		List<String> result = new ArrayList<>();
+
+		if(idxWord != null)
+		{
+			for(IWordID wordID : idxWord.getWordIDs())
+			{
+				ISynset synset = dict.getWord(wordID).getSynset();
+				result.add(synset.getGloss());
+			}
+		}
+
+		return result;
+	}
+
 	private static HashSet<String> getNounGloss(String stem) throws Exception
 	{
 		IIndexWord idxWord = dict.getIndexWord(stem, POS.NOUN);
